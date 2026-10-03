@@ -907,6 +907,11 @@ search settings."
             (if deadgrep--context
                 (format ":%d" (cdr deadgrep--context))
               "")
+            "\n"
+            (propertize "Line numbers: "
+                        'face 'deadgrep-meta-face)
+            (deadgrep--button "shown" 'deadgrep-toggle-line-numbers)
+            (if deadgrep-no-line-numbers ":no" ":yes")
 
             "\n\n"
             (propertize "Directory: "
@@ -944,11 +949,6 @@ search settings."
             " "
             (deadgrep--button ".gitignore items" 'deadgrep-vcs-skip-type)
             (if deadgrep--skip-if-vcs-ignore ":yes" ":no")
-            "\n"
-            (propertize "Line numbers: "
-                        'face 'deadgrep-meta-face)
-            (deadgrep--button "shown" 'deadgrep-toggle-line-numbers)
-            (if deadgrep-no-line-numbers ":no" ":yes")
             "\n\n")
     (put-text-property
      start-pos (point)
