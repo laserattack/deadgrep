@@ -947,9 +947,8 @@ search settings."
             "\n"
             (propertize "Line numbers: "
                         'face 'deadgrep-meta-face)
-            (deadgrep--button
-             (if deadgrep-no-line-numbers "hidden" "shown")
-             'deadgrep-toggle-line-numbers)
+            (deadgrep--button "shown" 'deadgrep-toggle-line-numbers)
+            (if deadgrep-no-line-numbers ":no" ":yes")
             "\n\n")
     (put-text-property
      start-pos (point)
