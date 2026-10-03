@@ -1428,12 +1428,12 @@ Keys are interned filenames, so they compare with `eq'.")
            (end-pos
             (progn
               (while (and
-                      (or (get-text-property (point) 'deadgrep-line-number)
-                          (get-text-property (point) 'deadgrep-separator))
-                      (not (bobp)))
+                      (not (eobp))
+                      (let ((fn (get-text-property (point) 'deadgrep-filename)))
+                        (or (null fn)
+                            (equal fn file-name))))
                 (forward-line))
-              ;; Step over the newline.
-              (1+ (point))))
+              (point)))
            (o (make-overlay start-pos end-pos)))
       (overlay-put o 'invisible t)
       (setf (alist-get (intern file-name) deadgrep--hidden-files)
