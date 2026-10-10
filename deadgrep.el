@@ -3,7 +3,7 @@
 ;; Copyright (C) 2018-2024  Wilfred Hughes
 ;; Copyright (C) 2026  laserattack
 
-;; Package-Requires: ((emacs "25.1") (dash "2.12.0") (s "1.11.0"))
+;; Package-Requires: ((emacs "25.1") (dash "2.12.0"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -21,9 +21,121 @@
 ;;; Code:
 
 (require 'cl-lib)
-(require 's)
 (require 'dash)
 (require 'project)
+
+;;; Some functions from "s.el" (https://github.com/magnars/s.el):
+
+(defun deadgrep--s--truthy? (val)
+  (declare (pure t) (side-effect-free t))
+  (not (null val)))
+
+(defun deadgrep--s-split (separator s &optional omit-nulls)
+  "Split S into substrings bounded by matches for regexp SEPARATOR.
+If OMIT-NULLS is non-nil, zero-length substrings are omitted.
+
+This is a simple wrapper around the built-in `split-string'."
+  (declare (side-effect-free t))
+  (save-match-data
+    (split-string s separator omit-nulls)))
+
+(defun deadgrep--s-lines (s)
+  "Splits S into a list of strings on newline characters."
+  (declare (pure t) (side-effect-free t))
+  (deadgrep--s-split "\\(\r\n\\|[\n\r]\\)" s))
+
+(defun deadgrep--s-blank? (s)
+  "Is S nil or the empty string?"
+  (declare (pure t) (side-effect-free t))
+  (or (null s) (string= "" s)))
+
+(defun deadgrep--s-repeat (num s)
+  "Make a string of S repeated NUM times."
+  (declare (pure t) (side-effect-free t))
+  (let (ss)
+    (while (> num 0)
+      (setq ss (cons s ss))
+      (setq num (1- num)))
+    (apply 'concat ss)))
+
+(defun deadgrep--s-starts-with-p (prefix s &optional ignore-case)
+  "Does S start with PREFIX?
+
+If IGNORE-CASE is non-nil, the comparison is done without paying
+attention to case differences.
+
+This is a simple wrapper around the built-in `string-prefix-p'."
+  (declare (pure t) (side-effect-free t))
+  (string-prefix-p prefix s ignore-case))
+
+(defun deadgrep--s-matches-p (regexp s &optional start)
+  "Does REGEXP match S?
+If START is non-nil the search starts at that index.
+
+This is a simple wrapper around the built-in `string-match-p'."
+  (declare (side-effect-free t))
+  (deadgrep--s--truthy? (string-match-p regexp s start)))
+
+(defun deadgrep--s-pad-right (len padding s)
+  "If S is shorter than LEN, pad it with PADDING on the right."
+  (declare (pure t) (side-effect-free t))
+  (let ((extra (max 0 (- len (length s)))))
+    (concat s
+            (make-string extra (string-to-char padding)))))
+
+(defun deadgrep--s-replace (old new s)
+  "Replaces OLD with NEW in S."
+  (declare (pure t) (side-effect-free t))
+  (replace-regexp-in-string (regexp-quote old) new s t t))
+
+(defun deadgrep--s-trim-left (s)
+  "Remove whitespace at the beginning of S."
+  (declare (pure t) (side-effect-free t))
+  (save-match-data
+    (if (string-match "\\`[ \t\n\r]+" s)
+        (replace-match "" t t s)
+      s)))
+
+(defun deadgrep--s-trim-right (s)
+  "Remove whitespace at the end of S."
+  (declare (pure t) (side-effect-free t))
+  (save-match-data
+    (if (string-match "[ \t\n\r]+\\'" s)
+        (replace-match "" t t s)
+      s)))
+
+(defun deadgrep--s-trim (s)
+  "Remove whitespace at the beginning and end of S."
+  (declare (pure t) (side-effect-free t))
+  (deadgrep--s-trim-left (deadgrep--s-trim-right s)))
+
+(defun deadgrep--s-join (separator strings)
+  "Join all the strings in STRINGS with SEPARATOR in between."
+  (declare (pure t) (side-effect-free t))
+  (mapconcat 'identity strings separator))
+
+(defun deadgrep--s-truncate (len s &optional ellipsis)
+  "If S is longer than LEN, cut it down and add ELLIPSIS to the end.
+
+The resulting string, including ellipsis, will be LEN characters
+long.
+
+When not specified, ELLIPSIS defaults to ‘...’."
+  (declare (pure t) (side-effect-free t))
+  (unless ellipsis
+    (setq ellipsis "..."))
+  (if (> (length s) len)
+      (format "%s%s" (substring s 0 (- len (length ellipsis))) ellipsis)
+    s))
+
+(defun deadgrep--s-left (len s)
+  "Returns up to the LEN first chars of S."
+  (declare (pure t) (side-effect-free t))
+  (if (> (length s) len)
+      (substring s 0 len)
+    s))
+
+;;;
 
 (defgroup deadgrep nil
   "A powerful text search UI using ripgrep."
@@ -197,7 +309,7 @@ It is used to create `imenu' index.")
     (setq deadgrep--remaining-output nil))
 
   (let ((inhibit-read-only t)
-        (lines (s-lines output))
+        (lines (deadgrep--s-lines output))
         prev-line-num)
     ;; Process filters run asynchronously, and don't guarantee that
     ;; OUTPUT ends with a complete line. Save the last line for
@@ -211,7 +323,7 @@ It is used to create `imenu' index.")
       (dolist (line lines)
         (cond
          ;; Ignore blank lines.
-         ((s-blank? line))
+         ((deadgrep--s-blank? line))
          ;; Lines of just -- are used as a context separator when
          ;; calling ripgrep with context flags.
          ((string= line "--")
@@ -220,7 +332,7 @@ It is used to create `imenu' index.")
             ;; line numbers.
             (when prev-line-num
               (setq separator
-                    (s-repeat (log prev-line-num 10) "-")))
+                    (deadgrep--s-repeat (log prev-line-num 10) "-")))
             (insert
              (propertize (concat separator "\n")
                          'face 'deadgrep-meta-face
@@ -229,8 +341,8 @@ It is used to create `imenu' index.")
          ;; must be complaining about something (e.g. zero matches for
          ;; a glob, or permission denied on some directories).
          ((or
-           (s-starts-with-p "WARNING: " line)
-           (not (s-matches-p deadgrep--color-code line)))
+           (deadgrep--s-starts-with-p "WARNING: " line)
+           (not (deadgrep--s-matches-p deadgrep--color-code line)))
           (when deadgrep--current-file
             (setq deadgrep--current-file nil)
             (insert "\n"))
@@ -243,7 +355,7 @@ It is used to create `imenu' index.")
                      line))
                   ((filename line-num content) (deadgrep--split-line line))
                   (formatted-line-num
-                   (s-pad-right deadgrep--position-column-width " "
+                   (deadgrep--s-pad-right deadgrep--position-column-width " "
                                 (number-to-string line-num)))
                   (pretty-line-num
                    (propertize formatted-line-num
@@ -399,7 +511,7 @@ color codes replaced with string properties."
 This differs from `regexp-quote', which outputs a regexp pattern.
 Instead, we provide a string suitable for REP in
 `replace-regexp-in-string'."
-  (s-replace "\\" "\\\\" s))
+  (deadgrep--s-replace "\\" "\\\\" s))
 
 (defun deadgrep--propertize-hits (line-contents)
   "Given LINE-CONTENTS from ripgrep, replace ANSI color codes
@@ -521,14 +633,14 @@ WHICH-CONTEXT is a symbol, either \\='before or \\='after."
                      (process-file-shell-command
                       (format "%s --type-list" deadgrep-executable)
                       nil '(t nil)))))
-         (lines (s-lines (s-trim output)))
+         (lines (deadgrep--s-lines (deadgrep--s-trim output)))
          (types-and-globs
           (--map
-           (s-split (rx ": ") it)
+           (deadgrep--s-split (rx ": ") it)
            lines)))
     (-map
      (-lambda ((type globs))
-       (list type (s-split (rx ", ") globs)))
+       (list type (deadgrep--s-split (rx ", ") globs)))
      types-and-globs)))
 
 (define-button-type 'deadgrep-file-type
@@ -563,7 +675,7 @@ WHICH-CONTEXT is a symbol, either \\='before or \\='after."
                     (list "..."))))
     (format "%s (%s)"
             file-type
-            (s-join ", " extensions))))
+            (deadgrep--s-join ", " extensions))))
 
 (defun deadgrep--glob-regexp (glob)
   "Convert GLOB pattern to the equivalent elisp regexp."
@@ -1005,7 +1117,7 @@ Returns a copy of REGEXP with properties set."
 
 (defun deadgrep--buffer-name (search-term directory)
   (format "*deadgrep %s %s*"
-          (s-truncate 30 search-term)
+          (deadgrep--s-truncate 30 search-term)
           (abbreviate-file-name directory)))
 
 (defun deadgrep--buffers ()
@@ -1567,7 +1679,7 @@ matches (if the result line has been truncated)."
                  deadgrep-executable
                  args)))
     (setq deadgrep--debug-command
-          (format "%s %s" deadgrep-executable (s-join " " args)))
+          (format "%s %s" deadgrep-executable (deadgrep--s-join " " args)))
     (set-process-filter process #'deadgrep--process-filter)
     (set-process-sentinel process #'deadgrep--process-sentinel)))
 
@@ -1657,7 +1769,7 @@ for a string, offering the current word as a default."
            ((eq next-char ?\C-m)
             (throw 'break nil))
            ((eq next-char ?\C-?)
-            (setq search-term (s-left -1 search-term)))
+            (setq search-term (deadgrep--s-left -1 search-term)))
            (t
             (setq search-term (concat search-term (list next-char))))))
         (when (> (length search-term) 2)
