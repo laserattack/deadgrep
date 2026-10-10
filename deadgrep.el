@@ -1,11 +1,8 @@
 ;;; deadgrep.el --- fast, friendly searching with ripgrep  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2018-2024  Wilfred Hughes
+;; Copyright (C) 2026  laserattack
 
-;; Author: Wilfred Hughes <me@wilfred.me.uk>
-;; URL: https://github.com/Wilfred/deadgrep
-;; Keywords: tools
-;; Version: 0.14
 ;; Package-Requires: ((emacs "25.1") (dash "2.12.0") (s "1.11.0") (spinner "1.7.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -20,14 +17,6 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
-;;; Commentary:
-
-;; Perform text searches with the speed of ripgrep and the comfort of
-;; Emacs.  This is a bespoke mode that does not rely on
-;; compilation-mode, but tries to be a perfect fit for ripgrep.
-
-;; Install from MELPA, then `M-x deadgrep' will do a search!
 
 ;;; Code:
 
