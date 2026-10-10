@@ -3,7 +3,7 @@
 ;; Copyright (C) 2018-2024  Wilfred Hughes
 ;; Copyright (C) 2026  laserattack
 
-;; Package-Requires: ((emacs "25.1") (dash "2.12.0") (s "1.11.0") (spinner "1.7.3"))
+;; Package-Requires: ((emacs "25.1") (dash "2.12.0") (s "1.11.0"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -23,7 +23,6 @@
 (require 'cl-lib)
 (require 's)
 (require 'dash)
-(require 'spinner)
 (require 'project)
 
 (defgroup deadgrep nil
@@ -163,7 +162,6 @@ Used to offer better default values for file options.")
 
 (defvar-local deadgrep--current-file nil
   "The file we're currently inserting results for.")
-(defvar-local deadgrep--spinner nil)
 (defvar-local deadgrep--remaining-output nil
   "We can't guarantee that our process filter will always receive whole lines.
 We save the last line here, in case we need to append more text to it.")
@@ -307,8 +305,6 @@ It is used to create `imenu' index.")
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
         (setq deadgrep--running nil)
-        ;; rg has terminated, so stop the spinner.
-        (spinner-stop deadgrep--spinner)
 
         (deadgrep--insert-output "" finished-p)
 
@@ -1559,10 +1555,8 @@ matches (if the result line has been truncated)."
 
 (defun deadgrep--start (search-term search-type case)
   "Start a ripgrep search."
-  (setq deadgrep--spinner (spinner-create 'progress-bar t))
   (setq deadgrep--running t)
   (setq deadgrep--result-count 0)
-  (spinner-start deadgrep--spinner)
   (let* ((args (deadgrep--arguments
                 search-term search-type case
                 deadgrep--context))
@@ -1593,7 +1587,6 @@ matches (if the result line has been truncated)."
 
     ;; Reset intermediate search state.
     (setq deadgrep--current-file nil)
-    (setq deadgrep--spinner nil)
     (setq deadgrep--remaining-output nil)
     (setq deadgrep--current-file nil)
     (setq deadgrep--debug-first-output nil)
@@ -1727,12 +1720,11 @@ deadgrep is ready but not yet searching."
                (key-description restart-key))))))
 
 (defun deadgrep--mode-line ()
-  (let* ((s (if deadgrep--result-count
-                (format "Deadgrep:%s" deadgrep--result-count)
-              "Deadgrep"))
-         (spinner-str (spinner-print deadgrep--spinner)))
-    (if spinner-str
-        (concat s " " spinner-str)
+  (let ((s (if deadgrep--result-count
+               (format "Deadgrep:%s" deadgrep--result-count)
+             "Deadgrep")))
+    (if deadgrep--running
+        (concat s "...")
       s)))
 
 (defun deadgrep--create-imenu-index ()
